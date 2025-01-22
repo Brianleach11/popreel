@@ -1,8 +1,13 @@
+import LandingPage from "@/components/landing/landing-page";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  return (
-    <>
-      <h1>Hello World</h1>
-    </>
-  );
+export default async function Home() {
+  const { userId } = await auth();
+
+  if (userId) {
+    redirect("/feed");
+  }
+
+  return <LandingPage isSignedIn={false} />;
 }
