@@ -32,8 +32,8 @@ export async function POST(request: Request) {
 // Mock functions (replace with actual backend calls)
 async function fetchVideosForUser(userId: string) {
   //TODO: Implement fetchVideos
-  const videos = await fetchVideos(userId);
-  videos.push({ id: 1, title: "Video 1", description: "Description 1", tags: ["funny", "short"], videoUrl: "https://example.com/video1.mp4" });
+  const videos = [];
+  videos.push({ id: userId, title: "Video 1", description: "Description 1", tags: ["funny", "short"], videoUrl: "https://example.com/video1.mp4" });
   videos.push({ id: 2, title: "Video 2", description: "Description 2", tags: ["educational", "long"], videoUrl: "https://example.com/video2.mp4" });
   return videos;
 }
