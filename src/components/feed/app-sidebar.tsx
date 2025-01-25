@@ -17,13 +17,13 @@ export function AppSidebar() {
   ];
 
   return (
-    <div className="h-full w-64 border-r border-gray-800 bg-black p-4">
+    <div className="fixed top-0 left-0 h-screen w-64 border-r border-gray-800 bg-black p-4 flex flex-col">
       <div className="flex items-center gap-2 mb-8">
         <Video className="h-6 w-6 text-primary" />
         <span className="font-bold text-xl text-white">PopReel</span>
       </div>
 
-      <nav className="space-y-2">
+      <nav className="space-y-2 flex-1">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -46,7 +46,7 @@ export function AppSidebar() {
         })}
       </nav>
 
-      <div className="absolute bottom-4 w-52">
+      <div className="mt-auto">
         <Button
           variant="ghost"
           className="w-full justify-start text-gray-400 hover:text-primary hover:bg-gray-900"

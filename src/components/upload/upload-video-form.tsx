@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Upload, X, Edit2, Eye, Loader2 } from "lucide-react";
-
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 export function UploadVideoForm() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -16,26 +17,27 @@ export function UploadVideoForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  const router = useRouter();
+
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type.startsWith("video/")) {
-      console.log("FILE UPLOADED: ", file.type);
       setVideoFile(file);
       setVideoPreviewUrl(URL.createObjectURL(file));
     } else {
-      alert("Please select a valid video file.");
+      toast.error("Please select a valid video file.");
     }
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!videoFile) {
-      alert("Please select a video file.");
+      toast.error("Please select a video file.");
       return;
     }
 
     if (!title.trim()) {
-      alert("Please enter a title for your video.");
+      toast.error("Please enter a title for your video.");
       return;
     }
 
@@ -57,10 +59,11 @@ export function UploadVideoForm() {
     setIsUploading(false);
 
     if (response.status === 200) {
-      alert("Video uploaded successfully");
+      toast.success("Video uploaded successfully");
       resetForm();
+      router.push("/profile");
     } else {
-      alert("Failed to upload video");
+      toast.error("Failed to upload video");
     }
   };
 

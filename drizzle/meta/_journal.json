@@ -22,6 +22,13 @@
       "when": 1737787163588,
       "tag": "0002_typical_tusk",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1737792467917,
+      "tag": "0003_thick_mimic",
+      "breakpoints": true
     }
   ]
 }

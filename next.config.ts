@@ -1,6 +1,5 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const config = {
   async rewrites() {
     return [
       {
@@ -9,6 +8,9 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  images: {
+    domains: ["storage.googleapis.com"],
+  },
 };
 
-export default nextConfig;
+export default config;
