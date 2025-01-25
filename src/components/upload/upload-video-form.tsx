@@ -1,23 +1,20 @@
 "use client";
 
-import {
-  useState,
-  useRef,
-  type ChangeEvent,
-  type FormEvent,
-} from "react";
+import { useState, useRef, type ChangeEvent, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Upload, X, Edit2, Eye } from "lucide-react";
+import { Upload, X, Edit2, Eye, Loader2 } from "lucide-react";
 
 export function UploadVideoForm() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isEditing, setIsEditing] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -37,25 +34,40 @@ export function UploadVideoForm() {
       return;
     }
 
+    if (!title.trim()) {
+      alert("Please enter a title for your video.");
+      return;
+    }
+
     if (isEditing) {
       setIsEditing(false);
       return;
     }
 
-    // Here you would typically upload the file to your server or a cloud storage service
-    console.log("Uploading video:", videoFile.name);
-    console.log("Description:", description);
-    // Reset form after submission
-    setVideoFile(null);
-    setVideoPreviewUrl(null);
-    setDescription("");
-    setIsEditing(true);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    const formData = new FormData();
+    formData.append("file", videoFile);
+    formData.append("title", title);
+    formData.append("description", description);
+
+    setIsUploading(true);
+    const response = await fetch("/api/video", {
+      method: "POST",
+      body: formData,
+    });
+    setIsUploading(false);
+
+    if (response.status === 200) {
+      alert("Video uploaded successfully");
+      resetForm();
+    } else {
+      alert("Failed to upload video");
+    }
   };
 
   const resetForm = () => {
     setVideoFile(null);
     setVideoPreviewUrl(null);
+    setTitle("");
     setDescription("");
     setIsEditing(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -117,6 +129,18 @@ export function UploadVideoForm() {
               {isEditing ? (
                 <div className="space-y-4">
                   <div>
+                    <Label htmlFor="title" className="text-gray-200">
+                      Title
+                    </Label>
+                    <Input
+                      id="title"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Give your video a title..."
+                      className="mt-2 bg-black border-gray-800 focus:border-primary"
+                    />
+                  </div>
+                  <div>
                     <Label htmlFor="description" className="text-gray-200">
                       Description
                     </Label>
@@ -140,7 +164,9 @@ export function UploadVideoForm() {
               ) : (
                 <div className="space-y-4">
                   <div className="text-gray-400 prose prose-invert">
-                    <Label className="text-gray-200">Description</Label>
+                    <Label className="text-gray-200">Title</Label>
+                    <p className="mt-2 text-xl font-semibold">{title}</p>
+                    <Label className="text-gray-200 mt-4">Description</Label>
                     <p className="mt-2 whitespace-pre-wrap">{description}</p>
                   </div>
                   <div className="flex gap-4">
@@ -156,8 +182,16 @@ export function UploadVideoForm() {
                     <Button
                       type="submit"
                       className="flex-1 bg-primary hover:bg-primary/90"
+                      disabled={isUploading}
                     >
-                      Post Video
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Posting
+                        </>
+                      ) : (
+                        "Post Video"
+                      )}
                     </Button>
                   </div>
                 </div>

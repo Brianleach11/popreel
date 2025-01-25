@@ -8,3 +8,16 @@ export default function UploadPage() {
     </div>
   );
 }
+
+/*
+    const blob = await put(compressedFile.name, compressedFile, {
+      access: "public",
+    });
+    const metadata = await extractVideoMetadata(blob.url);
+
+    await saveVideoMetadataToNeon({});
+
+    return NextResponse.json(
+      { message: "Video uploaded successfully" },
+      { status: 200 }
+    );*/

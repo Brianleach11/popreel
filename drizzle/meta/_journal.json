@@ -15,6 +15,13 @@
       "when": 1737593843777,
       "tag": "0001_amazing_justice",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1737787163588,
+      "tag": "0002_typical_tusk",
+      "breakpoints": true
     }
   ]
 }
