@@ -1,26 +1,44 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.webhook import webhook_router
+from routes.kafka_producer import router as kafka_router
 from db.connection import get_db, init_postgres
 from fastapi import Depends, HTTPException
 import asyncpg
+import os
+from dotenv import load_dotenv
+import asyncio
+from services.ml_consumer import run_consumers
+
+load_dotenv()
+
 app = FastAPI()
+
+# Frontend URL (in production and development)
+FRONTEND_URLS = [
+    "http://localhost:3000",  # Local development
+    "https://popreel-seven.vercel.app",  # Production
+]
 
 @app.on_event("startup")
 async def startup_event():
     await init_postgres()
+    # Start Kafka consumers in the background
+    asyncio.create_task(run_consumers())
 
-# Add CORS middleware
+# Add CORS middleware with specific configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with your frontend domain
+    allow_origins=FRONTEND_URLS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # Include routes
 app.include_router(webhook_router)
+app.include_router(kafka_router)  # Add Kafka routes
 
 @app.get("/")
 def read_root():

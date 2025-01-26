@@ -1,8 +1,15 @@
 import asyncpg
 from typing import Optional
+import os
+from dotenv import load_dotenv
 
-DATABASE_URL = "postgresql://neondb_owner:npg_BwxgsNJ50Khf@ep-snowy-forest-a8vqjjrr.eastus2.azure.neon.tech/neondb?sslmode=require"
-DIRECT_URL = "postgresql://neondb_owner:npg_BwxgsNJ50Khf@ep-snowy-forest-a8vqjjrr.eastus2.azure.neon.tech/neondb?sslmode=require"
+load_dotenv()
+
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is required")
+    
+DIRECT_URL = os.getenv('DIRECT_URL', DATABASE_URL)
 
 conn_pool: Optional[asyncpg.Pool] = None
 

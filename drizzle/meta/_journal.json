@@ -29,6 +29,41 @@
       "when": 1737792467917,
       "tag": "0003_thick_mimic",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1737829736744,
+      "tag": "0004_wealthy_princess_powerful",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1737830263651,
+      "tag": "0005_minor_nightshade",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1737830535627,
+      "tag": "0006_concerned_maginty",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1737832753154,
+      "tag": "0007_handy_zeigeist",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1737851589748,
+      "tag": "0008_jittery_gambit",
+      "breakpoints": true
     }
   ]
 }

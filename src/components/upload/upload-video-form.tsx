@@ -50,7 +50,7 @@ export function UploadVideoForm() {
     formData.append("file", videoFile);
     formData.append("title", title);
     formData.append("description", description);
-
+    
     setIsUploading(true);
     const response = await fetch("/api/video", {
       method: "POST",

@@ -66,15 +66,12 @@ export function VideoGrid({ videos: initialVideos }: VideoGridProps) {
   };
 
   return (
-    <div className="bg-black text-white">
-      <h2 className="text-xl font-semibold mb-4 bg-gradient-to-r from-primary to-purple-500 text-transparent bg-clip-text">
-        Your Videos
-      </h2>
+    <div className="relative z-10 pt-16">
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {videos.map((video) => (
           <div
             key={video.id}
-            className="group relative rounded-lg overflow-hidden border border-gray-800 bg-gray-900/50"
+            className="group relative rounded-lg overflow-hidden border border-gray-800 bg-gray-900/50 backdrop-blur-sm"
           >
             <a href={video.url} className="block relative aspect-[9/16]">
               <video
@@ -118,7 +115,7 @@ export function VideoGrid({ videos: initialVideos }: VideoGridProps) {
                       )}
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent className="bg-gray-900 border border-gray-800">
+                  <AlertDialogContent className="bg-gray-900/95 backdrop-blur-sm border border-gray-800">
                     <AlertDialogHeader>
                       <AlertDialogTitle className="text-white">
                         Delete Video
@@ -129,12 +126,12 @@ export function VideoGrid({ videos: initialVideos }: VideoGridProps) {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel className="bg-gray-800 text-white hover:bg-gray-700">
+                      <AlertDialogCancel className="bg-gray-800/90 text-white hover:bg-gray-700">
                         Cancel
                       </AlertDialogCancel>
                       <AlertDialogAction
                         onClick={() => handleDelete(video.id)}
-                        className="bg-red-500 text-white hover:bg-red-600"
+                        className="bg-red-500/90 text-white hover:bg-red-600"
                         disabled={deletingId === video.id}
                       >
                         {deletingId === video.id ? (

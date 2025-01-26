@@ -5,6 +5,9 @@ import { VideoIntelligenceServiceClient } from "@google-cloud/video-intelligence
 import { protos } from "@google-cloud/video-intelligence";
 import db from "@/app/db";
 import { Videos } from "@/app/db/schema";
+import { processMetadata, VideoMetadata } from "@/lib/ml/extract-metadata";
+import { getVideoDurationInSeconds } from "get-video-duration";
+import { generateEmbedding } from "@/lib/ml/generate-embeddings";
 
 const storage = new Storage();
 const videoClient = new VideoIntelligenceServiceClient();
@@ -72,9 +75,30 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
-    const annotations = results.annotationResults[0];
+    const annotations = results.annotationResults[0] as VideoMetadata;
+
+    const extractedMetadata = await processMetadata(annotations);
+
+    if (extractedMetadata.hasSexualContent) {
+      return NextResponse.json(
+        { error: "Video contains sexual content" },
+        { status: 400 }
+      );
+    }
 
     ////////////
+    //create embedding for video
+    ////////////
+
+    const embeddingText = [
+      title,
+      description,
+      ...extractedMetadata.entities,
+      ...extractedMetadata.significantText,
+    ].join(" ");
+
+    const embedding = await generateEmbedding(embeddingText);
+    const duration = await getVideoDurationInSeconds(buffer.toString());
     //save metadata to db using drizzle
     ////////////
     const video = await db
@@ -85,8 +109,16 @@ export async function POST(request: Request) {
         description,
         fileUrl: gcsUrl,
         metadata: annotations,
+        duration: Math.round(duration),
+        embedding,
       })
       .returning();
+
+    //post video to kafka
+    await fetch(`${process.env.BACKEND_URL}/api/kafka/video`, {
+      method: "POST",
+      body: JSON.stringify(video[0]),
+    });
 
     return NextResponse.json(
       { message: "Video uploaded successfully", video: video[0] },

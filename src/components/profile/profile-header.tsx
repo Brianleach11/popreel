@@ -108,7 +108,7 @@ export function ProfileHeader({
   };
 
   return (
-    <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center gap-6 relative z-10">
       <div className="relative">
         <Avatar className="h-32 w-32 border-2 border-gray-800">
           <AvatarImage
@@ -122,7 +122,7 @@ export function ProfileHeader({
         </Avatar>
         <label
           htmlFor="avatar-upload"
-          className={`absolute bottom-0 right-0 p-2 bg-gray-900 rounded-full border border-gray-800 shadow-sm cursor-pointer hover:bg-gray-800 transition-colors ${
+          className={`absolute bottom-0 right-0 p-2 bg-gray-900/80 backdrop-blur-sm rounded-full border border-gray-800 shadow-sm cursor-pointer hover:bg-gray-800 transition-colors ${
             isUploading ? "pointer-events-none" : ""
           }`}
         >
@@ -159,7 +159,7 @@ export function ProfileHeader({
                       <FormControl>
                         <Input
                           {...field}
-                          className="h-9 bg-gray-900 border-gray-800 text-white focus:border-primary"
+                          className="h-9 bg-gray-900/80 backdrop-blur-sm border-gray-800 text-white focus:border-primary"
                         />
                       </FormControl>
                       <FormMessage className="text-red-400" />

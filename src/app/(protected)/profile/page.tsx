@@ -1,12 +1,12 @@
 import { ProfileHeader } from "@/components/profile/profile-header";
 import { VideoGrid } from "@/components/profile/video-grid";
-import { Separator } from "@/components/ui/separator";
 import { auth } from "@clerk/nextjs/server";
 import db from "@/app/db";
 import { Users, Videos } from "@/app/db/schema";
 import { eq } from "drizzle-orm";
 import { getSignedUrl } from "@/lib/video";
 import { cache } from "react";
+import { LampContainer } from "@/components/ui/lamp";
 
 // Cache the data fetching at the page level
 const getData = cache(async (userId: string) => {
@@ -75,14 +75,18 @@ export default async function ProfilePage() {
   const data = await getData(userId);
 
   return (
-    <div className="container max-w-6xl mx-auto py-8 px-4 bg-black">
-      <ProfileHeader
-        username={data.user.username}
-        email={data.user.email}
-        avatarUrl={data.user.avatarUrl}
-      />
-      <Separator className="my-8" />
-      <VideoGrid videos={data.videos} />
+    <div className="container max-w-6xl mx-auto py-8 px-4 bg-black text-white">
+      <div className="relative space-y-8">
+        <ProfileHeader
+          username={data.user.username}
+          email={data.user.email}
+          avatarUrl={data.user.avatarUrl}
+        />
+        <div className="absolute left-0 right-0 top-[47%] -translate-y-1/2">
+          <LampContainer className="h-[20rem]" />
+        </div>
+        <VideoGrid videos={data.videos} />
+      </div>
     </div>
   );
 }

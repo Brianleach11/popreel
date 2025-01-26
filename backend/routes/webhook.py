@@ -5,8 +5,12 @@ from svix.webhooks import Webhook, WebhookVerificationError
 from db.connection import get_db
 from fastapi import Depends
 import asyncpg
+import os
+from dotenv import load_dotenv
 
-WEBHOOK_SECRET = "whsec_8SXPTXJqi/en1TIU3UbPtklzklkbKlhP"
+load_dotenv()
+
+WEBHOOK_SECRET = os.getenv('WEBHOOK_SECRET', "whsec_8SXPTXJqi/en1TIU3UbPtklzklkbKlhP")
 webhook_router = APIRouter(prefix="/webhook")
 
 @webhook_router.post("")
