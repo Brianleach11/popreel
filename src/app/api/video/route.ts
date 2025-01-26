@@ -1,16 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { Storage } from "@google-cloud/storage";
-import { VideoIntelligenceServiceClient } from "@google-cloud/video-intelligence";
 import { protos } from "@google-cloud/video-intelligence";
 import db from "@/app/db";
 import { Videos } from "@/app/db/schema";
 import { processMetadata, VideoMetadata } from "@/lib/ml/extract-metadata";
 import { getVideoDurationInSeconds } from "get-video-duration";
 import { generateEmbedding } from "@/lib/ml/generate-embeddings";
-
-const storage = new Storage();
-const videoClient = new VideoIntelligenceServiceClient();
+import { storage, videoIntelligenceClient, bucketName } from "@/lib/gcp-config";
 
 //get recommended videos to populate feed
 
@@ -44,7 +40,6 @@ export async function POST(request: Request) {
     //upload video to GCS Bucket
     /////////////
     const buffer = Buffer.from(await file.arrayBuffer());
-    const bucketName = process.env.GCS_BUCKET_NAME!;
     //files saved as user_id/filename-timestamp
     const fileName = `${userId}/${file.name}-${Date.now()}`;
     const gcsFile = storage.bucket(bucketName).file(fileName);
@@ -58,7 +53,7 @@ export async function POST(request: Request) {
     /////////////
     const gcsUrl = `gs://${bucketName}/${fileName}`;
 
-    const [operation] = await videoClient.annotateVideo({
+    const [operation] = await videoIntelligenceClient.annotateVideo({
       inputUri: gcsUrl,
       features: [
         protos.google.cloud.videointelligence.v1.Feature.LABEL_DETECTION,

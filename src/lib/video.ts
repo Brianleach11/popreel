@@ -1,11 +1,8 @@
-import { Storage } from "@google-cloud/storage";
 import ffmpeg from "fluent-ffmpeg";
 import { join } from "path";
 import fs from "fs";
 import os from "os";
-
-const storage = new Storage();
-const bucketName = process.env.GCS_BUCKET_NAME!;
+import { storage, bucketName } from "./gcp-config";
 
 export async function generateThumbnail(gcsPath: string): Promise<string> {
   try {

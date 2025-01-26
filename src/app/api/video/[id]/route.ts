@@ -1,16 +1,11 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
-import { Storage } from "@google-cloud/storage";
 import db from "@/app/db";
 import { Videos } from "@/app/db/schema";
 import { and, eq } from "drizzle-orm";
+import { storage, bucketName } from "@/lib/gcp-config";
 
-const storage = new Storage();
-const bucketName = process.env.GCS_BUCKET_NAME!;
-
-export async function DELETE(
-  request: NextRequest,
-) {
+export async function DELETE(request: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) {

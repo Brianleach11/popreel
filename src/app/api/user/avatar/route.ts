@@ -1,12 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { Storage } from "@google-cloud/storage";
 import db from "@/app/db";
 import { Users } from "@/app/db/schema";
 import { eq } from "drizzle-orm";
-
-const storage = new Storage();
-const bucketName = process.env.GCS_BUCKET_NAME!;
+import { storage, bucketName } from "@/lib/gcp-config";
 
 async function deleteExistingAvatar(userId: string) {
   try {
