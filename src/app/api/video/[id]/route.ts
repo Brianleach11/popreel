@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { Storage } from "@google-cloud/storage";
 import db from "@/app/db";
 import { Videos } from "@/app/db/schema";
@@ -9,8 +9,7 @@ const storage = new Storage();
 const bucketName = process.env.GCS_BUCKET_NAME!;
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
 ) {
   try {
     const { userId } = await auth();
@@ -18,9 +17,14 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const id = request.nextUrl.pathname.split("/").pop();
+    if (!id) {
+      return NextResponse.json({ error: "Invalid video ID" }, { status: 400 });
+    }
+
     // First, get the video details to ensure it exists and belongs to the user
     const video = await db.query.Videos.findFirst({
-      where: and(eq(Videos.id, params.id), eq(Videos.userId, userId)),
+      where: and(eq(Videos.id, id), eq(Videos.userId, userId)),
     });
 
     if (!video) {
@@ -59,7 +63,7 @@ export async function DELETE(
     // Delete the video record from the database
     await db
       .delete(Videos)
-      .where(and(eq(Videos.id, params.id), eq(Videos.userId, userId)));
+      .where(and(eq(Videos.id, id), eq(Videos.userId, userId)));
 
     return NextResponse.json(
       { message: "Video deleted successfully" },
