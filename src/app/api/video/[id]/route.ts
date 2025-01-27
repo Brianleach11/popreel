@@ -52,7 +52,7 @@ export async function DELETE(request: NextRequest) {
 
     //Delete from pinecone
     try {
-      await fetch(`${process.env.BACKEND_URL}/api/webhook/video/${id}`, {
+      await fetch(`${process.env.BACKEND_URL}/webhook/video/${id}`, {
         method: "DELETE",
       });
     } catch (error) {
