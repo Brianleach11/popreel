@@ -189,7 +189,7 @@ export function UploadVideoForm() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="flex-1 border-gray-800 hover:bg-gray-900"
+                      className="flex-1 border-gray-800 hover:bg-gray-900 text-black hover:text-white"
                       onClick={() => setIsEditing(true)}
                     >
                       <Edit2 className="h-4 w-4 mr-2" />

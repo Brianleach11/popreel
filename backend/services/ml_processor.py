@@ -51,8 +51,8 @@ async def add_to_pinecone(video: VideoEmbedding) -> bool:
         bool: Success status
     """
     try:
-        if not video['embedding']:
-            print(f"No embedding for video {video['id']}")
+        if not video.embedding:
+            print(f"No embedding for video {video.id}")
             return False
             
         pc = get_pinecone_client()
@@ -65,14 +65,14 @@ async def add_to_pinecone(video: VideoEmbedding) -> bool:
         # Upsert to Pinecone
         index.upsert(
             vectors=[{
-                'id': video['id'],
-                'values': video['embedding'],
+                'id': video.id,
+                'values': video.embedding,
                 'metadata': {
-                    'title': video['title'],
-                    'description': video['description'],
-                    'userId': video['userId'],
-                    'duration': video['duration'],
-                    'trendingScore': video['trendingScore']
+                    'title': video.title,
+                    'description': video.description,
+                    'userId': video.userId,
+                    'duration': video.duration,
+                    'trendingScore': video.trendingScore
                 }
             }]
         )
@@ -86,7 +86,7 @@ async def add_to_pinecone(video: VideoEmbedding) -> bool:
                 SET status = 'ready'
                 WHERE id = $1
                 """,
-                video['id']
+                video.id
             )
         
         return True
@@ -187,10 +187,10 @@ async def generate_delta_embedding(interactions_with_video_embeddings: List[Tupl
             continue
             
         # Use the pre-calculated weightedScore
-        weight = interaction['weightedScore']
+        weight = interaction.weightedScore
             
         # Apply time decay to the interaction
-        interaction_time = datetime.fromisoformat(interaction['timestamp'])
+        interaction_time = datetime.fromisoformat(interaction.timestamp)
         days_since_interaction = (datetime.now() - interaction_time).days
         decay_factor = np.power(TIME_DECAY_FACTOR, days_since_interaction / 30)
         weight *= decay_factor

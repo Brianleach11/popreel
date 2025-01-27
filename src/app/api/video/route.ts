@@ -118,7 +118,7 @@ export async function POST(request: Request) {
 
     const embedding = await generateEmbedding(embeddingText);
 
-    // Save metadata to db using drizzle
+    // Save metadata to db using drizzle  
     const video = await db
       .insert(Videos)
       .values({
@@ -131,10 +131,12 @@ export async function POST(request: Request) {
         embedding,
       })
       .returning();
-
     // Post video to kafka for background processing
     await fetch(`${process.env.BACKEND_URL}/api/kafka/video`, {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(video[0]),
     });
 

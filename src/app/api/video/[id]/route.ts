@@ -35,21 +35,6 @@ export async function DELETE(request: NextRequest) {
         .bucket(bucketName)
         .file(video.fileUrl.replace(`gs://${bucketName}/`, ""));
       await videoFile.delete();
-
-      // Also try to delete any associated thumbnail if it exists
-      const thumbnailPath = video.fileUrl.replace(
-        video.fileUrl.split("/").pop()!,
-        `thumbnails/thumb-${video.fileUrl.split("/").pop()!}.jpg`
-      );
-      try {
-        const thumbnailFile = storage
-          .bucket(bucketName)
-          .file(thumbnailPath.replace(`gs://${bucketName}/`, ""));
-        await thumbnailFile.delete();
-      } catch (error) {
-        // Ignore thumbnail deletion errors
-        console.log("No thumbnail found or error deleting thumbnail:", error);
-      }
     } catch (error) {
       console.error("Error deleting file from storage:", error);
       // Continue with database deletion even if storage deletion fails
@@ -59,6 +44,8 @@ export async function DELETE(request: NextRequest) {
     await db
       .delete(Videos)
       .where(and(eq(Videos.id, id), eq(Videos.userId, userId)));
+
+    //TODO: Delete from kafka and pinecone
 
     return NextResponse.json(
       { message: "Video deleted successfully" },

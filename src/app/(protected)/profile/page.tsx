@@ -6,7 +6,7 @@ import { Users, Videos } from "@/app/db/schema";
 import { eq } from "drizzle-orm";
 import { getSignedUrl } from "@/lib/video";
 import { cache } from "react";
-import { LampContainer } from "@/components/ui/lamp";
+import { Separator } from "@/components/ui/separator";
 
 // Cache the data fetching at the page level
 const getData = cache(async (userId: string) => {
@@ -82,9 +82,7 @@ export default async function ProfilePage() {
           email={data.user.email}
           avatarUrl={data.user.avatarUrl}
         />
-        <div className="absolute left-0 right-0 top-[47%] -translate-y-1/2">
-          <LampContainer className="h-[20rem]" />
-        </div>
+        <Separator />
         <VideoGrid videos={data.videos} />
       </div>
     </div>

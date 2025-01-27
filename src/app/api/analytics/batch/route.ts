@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     await db.insert(analytics).values(processedValidEvents);
 
     //post to kafka
-    await fetch(`${process.env.BACKEND_URL}/api/kafka/analytics`, {
+    await fetch(`${process.env.BACKEND_URL}/api/kafka/interaction`, {
       method: "POST",
       body: JSON.stringify(processedValidEvents),
     });

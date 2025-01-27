@@ -1,17 +1,15 @@
 import json
-import os
-from typing import Dict, Any, List, TypedDict, Literal
-from datetime import datetime
+from typing import Dict, Any, List, Union, Literal
 from confluent_kafka import Producer, Consumer, KafkaError
 from pathlib import Path
-
+from pydantic import BaseModel
 # Topic names
 class Topics:
     VIDEO_INTERACTIONS = "video-interactions"
-    VIDEO_EMBEDDINGS = "video-embeddings"
+    VIDEO_EMBEDDINGS = "video_embedding"
 
 # Message type definitions
-class VideoInteraction(TypedDict):
+class VideoInteraction(BaseModel):
     userId: str
     videoId: str
     viewDuration: int  # Seconds watched
@@ -21,7 +19,7 @@ class VideoInteraction(TypedDict):
     timestamp: str
     weightedScore: float
 
-class VideoEmbedding(TypedDict):
+class VideoEmbedding(BaseModel):
     id: str
     userId: str
     title: str
@@ -38,10 +36,11 @@ class KafkaClient:
     """Confluent Cloud Kafka client"""
     
     def __init__(self):
-        self.config = self._read_config()
+        self.producer_config = self._read_config("producer")
+        self.consumer_config = self._read_config("consumer")
         self.producer = None  # Lazy initialization
         
-    def _read_config(self) -> Dict[str, str]:
+    def _read_config(self, config_type: Literal["producer", "consumer"]) -> Dict[str, str]:
         """Read the client configuration from client.properties"""
         config = {}
         properties_path = Path(__file__).parent.parent / "client.properties"
@@ -51,13 +50,25 @@ class KafkaClient:
                 line = line.strip()
                 if len(line) != 0 and line[0] != "#":
                     parameter, value = line.strip().split('=', 1)
-                    config[parameter] = value.strip()
+                    if config_type == "producer" and parameter in [
+                        "compression.type", "batch.size", "linger.ms", "retry.backoff.ms"
+                    ]:
+                        config[parameter] = value.strip()
+                    elif config_type == "consumer" and parameter in [
+                        "auto.offset.reset", "heartbeat.interval.ms"
+                    ]:
+                        config[parameter] = value.strip()
+                    elif parameter in [
+                        "bootstrap.servers", "security.protocol", 
+                        "sasl.mechanisms", "sasl.username", "sasl.password"
+                    ]:
+                        config[parameter] = value.strip()
         return config
 
     def _get_producer(self) -> Producer:
         """Lazy initialization of producer"""
         if self.producer is None:
-            self.producer = Producer(self.config)
+            self.producer = Producer(self.producer_config)
         return self.producer
 
     def produce_interaction(self, interaction: VideoInteraction) -> bool:
@@ -80,7 +91,7 @@ class KafkaClient:
         """
         return self.produce(Topics.VIDEO_EMBEDDINGS, [embedding])
 
-    def produce(self, topic: str, messages: List[Dict[str, Any]]) -> bool:
+    def produce(self, topic: str, messages: List[Union[Dict[str, Any], BaseModel]]) -> bool:
         """
         Produce messages to a Confluent Cloud topic
         Args:
@@ -92,13 +103,10 @@ class KafkaClient:
         try:
             producer = self._get_producer()
             for msg in messages:
-                # Add timestamp if not present
-                if 'timestamp' not in msg:
-                    msg['timestamp'] = datetime.utcnow().isoformat()
-                
+                msg_dict = msg.dict() if isinstance(msg, BaseModel) else msg.copy()
                 producer.produce(
                     topic,
-                    value=json.dumps(msg).encode('utf-8'),
+                    value=json.dumps(msg_dict).encode('utf-8'),
                     callback=self._delivery_report
                 )
             remaining = producer.flush(timeout=10)  # 10 seconds
@@ -119,7 +127,7 @@ class KafkaClient:
             Consumer: Configured Confluent Kafka consumer
         """
         consumer_config = {
-            **self.config,
+            **self.consumer_config,
             'group.id': group_id
         }
         return Consumer(consumer_config)

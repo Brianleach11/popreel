@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-
+import { useRouter } from "next/navigation";
 interface Video {
   id: string;
   title: string;
@@ -36,6 +36,8 @@ export function VideoGrid({ videos: initialVideos }: VideoGridProps) {
     {}
   );
 
+  const router = useRouter();
+
   const handleDelete = async (videoId: string) => {
     try {
       setDeletingId(videoId);
@@ -49,6 +51,7 @@ export function VideoGrid({ videos: initialVideos }: VideoGridProps) {
 
       setVideos(videos.filter((video) => video.id !== videoId));
       toast.success("Video deleted successfully");
+      router.refresh();
     } catch (error) {
       console.error("Error deleting video:", error);
       toast.error("Failed to delete video");
