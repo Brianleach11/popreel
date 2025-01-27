@@ -41,11 +41,24 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete the video record from the database
-    await db
-      .delete(Videos)
-      .where(and(eq(Videos.id, id), eq(Videos.userId, userId)));
+    try {
+      await db
+        .delete(Videos)
+        .where(and(eq(Videos.id, id), eq(Videos.userId, userId)));
+    } catch (error) {
+      console.error("Error deleting from database:", error);
+      // Continue even if database deletion fails
+    }
 
-    //TODO: Delete from kafka and pinecone
+    //Delete from pinecone
+    try {
+      await fetch(`${process.env.BACKEND_URL}/api/webhook/video/${id}`, {
+        method: "DELETE",
+      });
+    } catch (error) {
+      console.error("Error deleting from Pinecone:", error);
+      // Continue even if Pinecone deletion fails
+    }
 
     return NextResponse.json(
       { message: "Video deleted successfully" },

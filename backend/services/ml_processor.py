@@ -221,4 +221,27 @@ def merge_embeddings(current: List[float], delta: List[float], alpha: float = 0.
         List[float]: Merged embedding
     """
     return [alpha * c + (1 - alpha) * d for c, d in zip(current, delta)]
+
+async def delete_from_pinecone(video_id: str) -> bool:
+    """
+    Delete video embedding from Pinecone
+    Args:
+        video_id: ID of the video to delete
+    Returns:
+        bool: Success status
+    """
+    try:
+        pc = get_pinecone_client()
+        if not pc:
+            print("Pinecone client not available")
+            return False
+            
+        index = pc.Index("video-embeddings")
+
+        # Delete from Pinecone
+        index.delete(ids=[video_id])
+        return True
+    except Exception as e:
+        print(f"Error deleting from Pinecone: {e}")
+        return False
     

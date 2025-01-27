@@ -7,6 +7,7 @@ from fastapi import Depends
 import asyncpg
 import os
 from dotenv import load_dotenv
+from services.ml_processor import delete_from_pinecone
 
 load_dotenv()
 
@@ -77,3 +78,19 @@ async def handle_webhook(
             print(f"Error: {e}")
             await db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
+
+@webhook_router.delete("/video/{video_id}")
+async def delete_video_embedding(
+    video_id: str,
+):
+    """Delete video embedding from Pinecone"""
+    
+    try:
+        success = await delete_from_pinecone(video_id)
+        if success:
+            return {"status": "success", "message": "Video embedding deleted"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to delete video embedding")
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
