@@ -7,6 +7,7 @@ import { processMetadata, VideoMetadata } from "@/lib/ml/extract-metadata";
 import { getVideoDurationInSeconds } from "get-video-duration";
 import { generateEmbedding } from "@/lib/ml/generate-embeddings";
 import { storage, videoIntelligenceClient, bucketName } from "@/lib/gcp-config";
+import { Readable } from "stream";
 
 //get recommended videos to populate feed
 
@@ -92,8 +93,15 @@ export async function POST(request: Request) {
       ...extractedMetadata.significantText,
     ].join(" ");
 
+    const stream = new Readable({
+      read() {
+        this.push(buffer);
+        this.push(null);
+      },
+    });
+
     const embedding = await generateEmbedding(embeddingText);
-    const duration = await getVideoDurationInSeconds(buffer.toString());
+    const duration = await getVideoDurationInSeconds(stream);
     //save metadata to db using drizzle
     ////////////
     const video = await db
