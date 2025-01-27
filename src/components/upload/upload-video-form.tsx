@@ -46,11 +46,23 @@ export function UploadVideoForm() {
       return;
     }
 
+    // Get video duration
+    const duration = await new Promise<number>((resolve) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        resolve(Math.round(video.duration));
+        window.URL.revokeObjectURL(video.src);
+      };
+      video.src = URL.createObjectURL(videoFile);
+    });
+
     const formData = new FormData();
     formData.append("file", videoFile);
     formData.append("title", title);
     formData.append("description", description);
-    
+    formData.append("duration", duration.toString());
+
     setIsUploading(true);
     const response = await fetch("/api/video", {
       method: "POST",
@@ -63,7 +75,8 @@ export function UploadVideoForm() {
       resetForm();
       router.push("/profile");
     } else {
-      toast.error("Failed to upload video");
+      const data = await response.json();
+      toast.error(data.error || "Failed to upload video");
     }
   };
 

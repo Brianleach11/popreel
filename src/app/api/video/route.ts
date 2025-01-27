@@ -4,19 +4,34 @@ import { protos } from "@google-cloud/video-intelligence";
 import db from "@/app/db";
 import { Videos } from "@/app/db/schema";
 import { processMetadata, VideoMetadata } from "@/lib/ml/extract-metadata";
-import { getVideoDurationInSeconds } from "get-video-duration";
 import { generateEmbedding } from "@/lib/ml/generate-embeddings";
 import { storage, videoIntelligenceClient, bucketName } from "@/lib/gcp-config";
-import { Readable } from "stream";
 
-//get recommended videos to populate feed
+// Get recommended videos for feed
+export async function GET() {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-//post a video
+  try {
+    // For now, just return all videos ordered by creation date
+    const videos = await db.query.Videos.findMany({
+      orderBy: (videos) => videos.createdAt,
+      limit: 20,
+    });
 
-//get a user's videos
+    return NextResponse.json({ videos });
+  } catch (error) {
+    console.error("Error fetching videos:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch videos" },
+      { status: 500 }
+    );
+  }
+}
 
-//get a video by id
-
+// Post a new video
 export async function POST(request: Request) {
   const { userId } = await auth();
   if (!userId) {
@@ -27,6 +42,7 @@ export async function POST(request: Request) {
   const file = formData.get("file") as File;
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
+  const duration = parseInt(formData.get("duration") as string);
 
   if (!file) {
     return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -34,6 +50,13 @@ export async function POST(request: Request) {
 
   if (!title) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
+  }
+
+  if (isNaN(duration) || duration <= 0) {
+    return NextResponse.json(
+      { error: "Invalid video duration" },
+      { status: 400 }
+    );
   }
 
   try {
@@ -93,17 +116,9 @@ export async function POST(request: Request) {
       ...extractedMetadata.significantText,
     ].join(" ");
 
-    const stream = new Readable({
-      read() {
-        this.push(buffer);
-        this.push(null);
-      },
-    });
-
     const embedding = await generateEmbedding(embeddingText);
-    const duration = await getVideoDurationInSeconds(stream);
-    //save metadata to db using drizzle
-    ////////////
+
+    // Save metadata to db using drizzle
     const video = await db
       .insert(Videos)
       .values({
@@ -112,12 +127,12 @@ export async function POST(request: Request) {
         description,
         fileUrl: gcsUrl,
         metadata: annotations,
-        duration: Math.round(duration),
+        duration,
         embedding,
       })
       .returning();
 
-    //post video to kafka
+    // Post video to kafka for background processing
     await fetch(`${process.env.BACKEND_URL}/api/kafka/video`, {
       method: "POST",
       body: JSON.stringify(video[0]),
