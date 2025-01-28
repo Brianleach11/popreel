@@ -11,7 +11,6 @@ interface VideoSpecificProps {
   handleProgress?: (state: { played: number; playedSeconds: number }) => void;
   onEnded?: () => void;
   playing?: boolean;
-  muted?: boolean;
   onPlayPause?: (playing: boolean) => void;
 }
 
@@ -25,7 +24,6 @@ export function VideoPlayer({
   handleProgress, // renamed from onProgress
   onEnded,
   playing = true, // default to true for autoplay
-  muted = true,
   onPlayPause,
   className,
   ...props
@@ -80,7 +78,6 @@ export function VideoPlayer({
         width="100%"
         height="100%"
         playing={playing}
-        muted={muted}
         loop={true}
         onProgress={handleVideoProgress}
         onEnded={onEnded}

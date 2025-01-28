@@ -78,6 +78,13 @@
       "when": 1738023597460,
       "tag": "0010_volatile_elektra",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1738047473876,
+      "tag": "0011_tiny_magdalene",
+      "breakpoints": true
     }
   ]
 }

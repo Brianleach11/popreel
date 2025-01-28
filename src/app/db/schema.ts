@@ -36,7 +36,7 @@ export const analytics = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom().notNull(),
     userId: text("user_id").notNull(),
-    videoId: integer("video_id").notNull(),
+    videoId: text("video_id").notNull(),
     viewDuration: integer("view_duration").notNull(), // in seconds
     liked: boolean("liked").default(false).notNull(),
     commented: boolean("commented").default(false).notNull(),
