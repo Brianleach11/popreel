@@ -36,7 +36,7 @@ async def process_interactions():
                 video_embeddings = await get_video_embeddings(video_ids)
                 interactions_with_video_embeddings = zip(interactions, video_embeddings)
                 await update_user_embedding(user_id, interactions_with_video_embeddings)
-            await asyncio.sleep(60*60*24)  # Poll every day
+            await asyncio.sleep(60)  # Poll every day
     finally:
         consumer.close()
 
