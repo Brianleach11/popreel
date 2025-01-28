@@ -2,13 +2,27 @@
 
 import * as React from "react";
 import { useInView } from "react-intersection-observer";
-import { Loader2, MessageSquare, Heart, Share2 } from "lucide-react";
+import {
+  Loader2,
+  MessageSquare,
+  Heart,
+  Share2,
+  Copy,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VideoPlayer } from "@/components/video/video-player";
 import { useVideoAnalytics } from "@/lib/hooks/use-video-analytics";
 import { useAuth } from "@clerk/nextjs";
 import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar";
 import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 export interface Video {
   id: string;
@@ -51,6 +65,8 @@ function VideoItem({
   const { userId } = useAuth();
   const { trackEvent, finalize } = useVideoAnalytics(video.id);
   const totalDurationRef = React.useRef<number | null>(null);
+  const [showShareDialog, setShowShareDialog] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
 
   const { ref } = useInView({
     threshold: 0.55,
@@ -78,6 +94,22 @@ function VideoItem({
   const handleLike = async () => {
     if (!userId) return;
 
+    // Optimistically update UI
+    const isCurrentlyLiked = video.isLiked;
+    const currentLikes = video.likes;
+
+    setVideos((prevVideos) =>
+      prevVideos.map((v) =>
+        v.id === video.id
+          ? {
+              ...v,
+              isLiked: !isCurrentlyLiked,
+              likes: isCurrentlyLiked ? currentLikes - 1 : currentLikes + 1,
+            }
+          : v
+      )
+    );
+
     try {
       const response = await fetch(`/api/video/${video.id}`, {
         method: "PATCH",
@@ -85,7 +117,7 @@ function VideoItem({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          action: video.isLiked ? "unlike" : "like",
+          action: isCurrentlyLiked ? "unlike" : "like",
         }),
       });
 
@@ -93,23 +125,30 @@ function VideoItem({
         throw new Error("Failed to update like status");
       }
 
-      // Track analytics
-      if (video.isLiked) {
+      // Only track like events
+      if (!isCurrentlyLiked) {
         trackEvent(userId, "like");
       }
 
-      // Update local state
-      const updatedVideo = await response.json();
+      // Server update successful, no need to revert UI
+    } catch (error) {
+      console.error("Error updating like status:", error);
+
+      // Revert optimistic update on error
       setVideos((prevVideos) =>
         prevVideos.map((v) =>
           v.id === video.id
-            ? { ...v, likes: updatedVideo.video.likes, isLiked: !v.isLiked }
+            ? {
+                ...v,
+                isLiked: isCurrentlyLiked,
+                likes: currentLikes,
+              }
             : v
         )
       );
-    } catch (error) {
-      console.error("Error updating like status:", error);
-      // You might want to show a toast notification here
+
+      // Show error to user
+      // You might want to add a toast notification here
     }
   };
 
@@ -124,88 +163,121 @@ function VideoItem({
     if (userId) {
       trackEvent(userId, "share");
     }
-    // TODO: Implement share functionality
+    setShowShareDialog(true);
+  };
+
+  const handleCopyLink = async () => {
+    const videoUrl = `${window.location.origin}/video/${video.id}`;
+    await navigator.clipboard.writeText(videoUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div
-      ref={ref}
-      className="relative w-full h-[calc(100vh-4rem)] snap-start snap-always flex flex-col items-center py-4 -ml-96"
-    >
-      {/* Main container with max height for video */}
-      <div className="w-full max-w-[360px] aspect-[9/16] relative">
-        {/* Video player */}
-        <VideoPlayer
-          url={video.url}
-          playing={isPlaying}
-          onPlayPause={onPlayPause}
-          handleProgress={handleVideoProgress}
-          onEnded={() => onPlayPause(true)}
-          className="w-full h-full rounded-lg overflow-hidden"
-        />
+    <>
+      <div
+        ref={ref}
+        className="relative w-full h-[calc(100vh-4rem)] snap-start snap-always flex flex-col items-center py-4 -ml-96"
+      >
+        {/* Main container with max height for video */}
+        <div className="w-full max-w-[360px] aspect-[9/16] relative">
+          {/* Video player */}
+          <VideoPlayer
+            url={video.url}
+            playing={isPlaying}
+            onPlayPause={onPlayPause}
+            handleProgress={handleVideoProgress}
+            onEnded={() => onPlayPause(true)}
+            className="w-full h-full rounded-lg overflow-hidden"
+          />
 
-        {/* Interaction buttons on the right */}
-        <div className="absolute -right-24 bottom-20 flex flex-col items-center gap-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`flex flex-col items-center gap-1.5 hover:bg-transparent ${
-              video.isLiked ? "text-primary" : "text-white"
-            } hover:text-primary transition-colors`}
-            onClick={handleLike}
-          >
-            <Heart
-              className={`h-7 w-7 ${video.isLiked ? "fill-current" : ""}`}
-            />
-            <span className="text-xs font-medium">{video.likes}</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1.5 hover:bg-transparent text-white hover:text-primary transition-colors"
-            onClick={handleComment}
-          >
-            <MessageSquare className="h-7 w-7" />
-            <span className="text-xs font-medium">Comment</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1.5 hover:bg-transparent text-white hover:text-primary transition-colors"
-            onClick={handleShare}
-          >
-            <Share2 className="h-7 w-7" />
-            <span className="text-xs font-medium">Share</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* Video info section below */}
-      <div className="w-full max-w-[360px] px-4 py-3 -ml-8">
-        <div className="flex items-center gap-3 mb-2">
-          <Avatar className="h-8 w-8 rounded-full">
-            <AvatarImage
-              src={avatarUrl}
-              alt="avatar"
-              className="object-cover rounded-full h-8 w-8"
-            />
-            <AvatarFallback className="bg-gray-900" />
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <Link
-              href={`/profile/${video.userId}`}
-              className="font-semibold text-white text-sm truncate hover:text-primary transition-colors flex items-center"
+          {/* Interaction buttons on the right */}
+          <div className="absolute -right-24 bottom-20 flex flex-col items-center gap-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`flex flex-col items-center gap-1.5 hover:bg-transparent ${
+                video.isLiked ? "text-primary" : "text-white"
+              } hover:text-primary transition-colors`}
+              onClick={handleLike}
             >
-              @{username}
-            </Link>
+              <Heart
+                className={`h-7 w-7 ${video.isLiked ? "fill-current" : ""}`}
+              />
+              <span className="text-xs font-medium">{video.likes}</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex flex-col items-center gap-1.5 hover:bg-transparent text-white hover:text-primary transition-colors"
+              onClick={handleComment}
+            >
+              <MessageSquare className="h-7 w-7" />
+              <span className="text-xs font-medium">Comment</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex flex-col items-center gap-1.5 hover:bg-transparent text-white hover:text-primary transition-colors"
+              onClick={handleShare}
+            >
+              <Share2 className="h-7 w-7" />
+              <span className="text-xs font-medium">Share</span>
+            </Button>
           </div>
         </div>
-        <p className="text-sm text-gray-400 truncate">{video.title}</p>
-        <p className="text-sm text-gray-400 line-clamp-2">
-          {video.description}
-        </p>
+
+        {/* Video info section below */}
+        <div className="w-full max-w-[360px] px-4 py-3 -ml-8">
+          <div className="flex items-center gap-3 mb-2">
+            <Avatar className="h-8 w-8 rounded-full">
+              <AvatarImage
+                src={avatarUrl}
+                alt="avatar"
+                className="object-cover rounded-full h-8 w-8"
+              />
+              <AvatarFallback className="bg-gray-900" />
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <Link
+                href={`/profile/${video.userId}`}
+                className="font-semibold text-white text-sm truncate hover:text-primary transition-colors flex items-center"
+              >
+                @{username}
+              </Link>
+            </div>
+          </div>
+          <p className="text-sm text-gray-400 truncate">{video.title}</p>
+          <p className="text-sm text-gray-400 line-clamp-2">
+            {video.description}
+          </p>
+        </div>
       </div>
-    </div>
+
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="sm:max-w-md bg-black text-white">
+          <DialogHeader>
+            <DialogTitle>Share video</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center space-x-2">
+            <div className="grid flex-1 gap-2">
+              <Input
+                readOnly
+                value={`${window.location.origin}/video/${video.id}`}
+                className="w-full"
+              />
+            </div>
+            <Button size="icon" onClick={handleCopyLink} className="px-3">
+              {copied ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -241,10 +313,12 @@ export function Feed({
   initialVideos,
   initialAvatarUrls,
   initialUsernames,
+  mode = "trending",
 }: {
   initialVideos: Video[];
   initialAvatarUrls: string[];
   initialUsernames: string[];
+  mode?: "trending" | "recommended";
 }) {
   const [mounted, setMounted] = React.useState(false);
   const [videos, setVideos] = React.useState<Video[]>(initialVideos);
@@ -272,7 +346,10 @@ export function Feed({
       setError(null);
 
       const response = await fetch(
-        `/api/video?mode=trending&page=${page}&limit=5`
+        `/api/video?mode=${mode}&page=${page}&limit=5`,
+        {
+          cache: "no-store",
+        }
       );
       if (!response.ok) throw new Error("Failed to fetch videos");
 
@@ -297,7 +374,7 @@ export function Feed({
     } finally {
       setLoading(false);
     }
-  }, [page, loading, hasMore]);
+  }, [page, loading, hasMore, mode]);
 
   // Debounced version of loadMore
   const debouncedLoad = React.useCallback(() => {

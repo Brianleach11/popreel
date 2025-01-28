@@ -90,46 +90,39 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
-    // Start a transaction to ensure consistency
-    const result = await db.transaction(async (tx) => {
-      if (action === "like") {
-        // Add like record
-        await tx
-          .insert(VideoLikes)
-          .values({
-            userId,
-            videoId: id,
-          })
-          .onConflictDoNothing();
-      } else {
-        // Remove like record
-        await tx
-          .delete(VideoLikes)
-          .where(
-            and(eq(VideoLikes.videoId, id), eq(VideoLikes.userId, userId))
-          );
-      }
-
-      // Update likes count
-      const video = await tx
-        .update(Videos)
-        .set({
-          likes:
-            action === "like"
-              ? sql`${Videos.likes} + 1`
-              : sql`GREATEST(${Videos.likes} - 1, 0)`,
+    if (action === "like") {
+      // Add like record
+      await db
+        .insert(VideoLikes)
+        .values({
+          userId,
+          videoId: id,
         })
-        .where(eq(Videos.id, id))
-        .returning();
+        .onConflictDoNothing();
+    } else {
+      // Remove like record
+      await db
+        .delete(VideoLikes)
+        .where(and(eq(VideoLikes.videoId, id), eq(VideoLikes.userId, userId)));
+    }
 
-      return video[0];
-    });
+    // Update likes count
+    const video = await db
+      .update(Videos)
+      .set({
+        likes:
+          action === "like"
+            ? sql`${Videos.likes} + 1`
+            : sql`GREATEST(${Videos.likes} - 1, 0)`,
+      })
+      .where(eq(Videos.id, id))
+      .returning();
 
-    if (!result) {
+    if (!video || video.length === 0) {
       return NextResponse.json({ error: "Video not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ video: result });
+    return NextResponse.json({ video: video[0] });
   } catch (error) {
     console.error("Error updating video:", error);
     return NextResponse.json(

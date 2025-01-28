@@ -111,7 +111,7 @@ export const VideoLikes = pgTable(
     createdAt: timestamp("created_at")
       .default(sql`now()`)
       .notNull(),
-  },
+  }
   /*(table) => ({
     // Compound unique index to prevent duplicate likes
     userVideoIdx: index("video_likes_user_video_idx")

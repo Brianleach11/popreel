@@ -22,6 +22,7 @@ interface VideoWithSimilarity extends Video {
 // Request expects mode and page
 export async function GET(request: NextRequest) {
   const { userId } = await auth();
+  console.log("GET REQUEST USER ID: ", userId);
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get("mode") || "recommended"; // recommended, trending, or explore
   const page = parseInt(searchParams.get("page") || "1");
@@ -105,37 +106,38 @@ export async function GET(request: NextRequest) {
           action: "read",
           expires: Date.now() + 1 * 60 * 60 * 1000, // 1 hour
         });
-
+        let avatarUrl = "";
+        let username = "Unknown User";
         // Get user's info
-        const user = await db.query.Users.findFirst({
-          where: eq(Users.id, video.userId),
-        });
-
         if (userId) {
+          const user = (await db.query.Users.findFirst({
+            where: eq(Users.id, userId),
+          })) || { id: "", username: "", email: "", avatarUrl: null };
+
+          console.log("USER TO LIKE", userId);
           const isLiked = await db.query.VideoLikes.findFirst({
             where: and(
-              eq(VideoLikes.userId, userId),
+              eq(VideoLikes.userId, user.id),
               eq(VideoLikes.videoId, video.id)
             ),
           });
+          console.log("IS LIKED: ", isLiked);
           video.isLiked = isLiked ? true : false;
-        }
 
-        let avatarUrl = "";
-        let username = "Unknown User";
-
-        if (user) {
-          username = user.username;
-          if (user.avatarUrl) {
-            try {
-              avatarUrl = await getSignedUrl(user.avatarUrl);
-            } catch (error) {
-              console.error("Error getting signed avatar URL:", error);
+          if (user) {
+            username = user.username;
+            if (user.avatarUrl) {
+              try {
+                avatarUrl = await getSignedUrl(user.avatarUrl);
+              } catch (error) {
+                console.error("Error getting signed avatar URL:", error);
+              }
             }
           }
         }
 
         usernames.push(username);
+        console.log("USERNAME: ", username);
         return { ...video, url: signedUrl, avatarUrl };
       })
     );
