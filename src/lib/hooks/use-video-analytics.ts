@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 
 interface VideoAnalytics {
-  videoId: number;
+  videoId: string;
   userId: string;
   viewStartTime: number;
   liked: boolean;
@@ -9,7 +9,7 @@ interface VideoAnalytics {
   shared: boolean;
 }
 
-export function useVideoAnalytics(videoId: number) {
+export function useVideoAnalytics(videoId: string) {
   const analyticsRef = useRef<VideoAnalytics | null>(null);
   const isProcessing = useRef(false);
 

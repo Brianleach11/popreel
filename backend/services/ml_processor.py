@@ -126,12 +126,12 @@ async def update_user_embedding(user_id: str, interactions_with_video_embeddings
         async with db_pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO user_embeddings (user_id, embedding, last_updated)
+                INSERT INTO user_embeddings (user_id, embedding, updated_at)
                 VALUES ($1, $2, NOW())
                 ON CONFLICT (user_id) 
                 DO UPDATE SET 
                     embedding = $2,
-                    last_updated = NOW()
+                    updated_at = NOW()
                 """,
                 user_id,
                 new_embedding
@@ -153,7 +153,7 @@ async def get_user_embedding(user_id: str) -> Optional[List[float]]:
     async with db_pool.acquire() as conn:
         result = await conn.fetchrow(
             """
-            SELECT embedding, last_updated 
+            SELECT embedding, updated_at 
             FROM user_embeddings 
             WHERE user_id = $1
             """, 
@@ -164,7 +164,7 @@ async def get_user_embedding(user_id: str) -> Optional[List[float]]:
             return None
             
         # Apply time decay
-        days_since_update = (datetime.now() - result['last_updated']).days
+        days_since_update = (datetime.now() - result['updated_at']).days
         decay_factor = np.power(TIME_DECAY_FACTOR, days_since_update / 30)  # Decay over 30-day periods
         return [x * decay_factor for x in result['embedding']]
 

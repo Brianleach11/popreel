@@ -1,27 +1,157 @@
 import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { protos } from "@google-cloud/video-intelligence";
 import db from "@/app/db";
-import { Videos } from "@/app/db/schema";
+import { Videos, Users, VideoLikes } from "@/app/db/schema";
 import { processMetadata, VideoMetadata } from "@/lib/ml/extract-metadata";
 import { generateEmbedding } from "@/lib/ml/generate-embeddings";
 import { storage, videoIntelligenceClient, bucketName } from "@/lib/gcp-config";
+import { desc, eq, sql, and, inArray } from "drizzle-orm";
+import { InferSelectModel } from "drizzle-orm";
+import { getSignedUrl } from "@/lib/video";
+
+type Video = InferSelectModel<typeof Videos>;
+interface VideoWithSimilarity extends Video {
+  similarity_score?: number;
+  url?: string;
+  avatarUrl?: string;
+  isLiked?: boolean;
+}
 
 // Get recommended videos for feed
-export async function GET() {
+// Request expects mode and page
+export async function GET(request: NextRequest) {
   const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { searchParams } = new URL(request.url);
+  const mode = searchParams.get("mode") || "recommended"; // recommended, trending, or explore
+  const page = parseInt(searchParams.get("page") || "1");
+  const limit = 20;
+  const offset = (page - 1) * limit;
 
   try {
-    // For now, just return all videos ordered by creation date
-    const videos = await db.query.Videos.findMany({
-      orderBy: (videos) => videos.createdAt,
-      limit: 20,
-    });
+    let videos: VideoWithSimilarity[];
+    const usernames: string[] = [];
 
-    return NextResponse.json({ videos });
+    if (!userId || mode === "trending") {
+      // For non-authenticated users or trending mode, return videos sorted by trending score
+      videos = await db.query.Videos.findMany({
+        orderBy: [desc(Videos.trendingScore), desc(Videos.createdAt)],
+        limit,
+        offset,
+        where: eq(Videos.status, "ready"),
+      });
+    } else if (mode === "recommended") {
+      // Get recommended video IDs from backend
+      const recommendResponse = await fetch(
+        `${process.env.BACKEND_URL}/api/recommendations?user_id=${userId}&limit=${limit}&offset=${offset}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!recommendResponse.ok) {
+        // Fallback to trending if recommendation fails
+        videos = await db.query.Videos.findMany({
+          orderBy: [desc(Videos.trendingScore), desc(Videos.createdAt)],
+          limit,
+          offset,
+          where: eq(Videos.status, "ready"),
+        });
+      } else {
+        const { videoIds } = await recommendResponse.json();
+        if (!videoIds?.length) {
+          // Fallback to trending if no recommendations
+          videos = await db.query.Videos.findMany({
+            orderBy: [desc(Videos.trendingScore), desc(Videos.createdAt)],
+            limit,
+            offset,
+            where: eq(Videos.status, "ready"),
+          });
+        } else {
+          // Get video details for recommended IDs
+          videos = await db.query.Videos.findMany({
+            where: and(
+              eq(Videos.status, "ready"),
+              inArray(Videos.id, videoIds)
+            ),
+            // Keep original order from recommendations
+            orderBy: sql`array_position(array[${sql.join(
+              videoIds
+            )}]::uuid[], id)`,
+          });
+        }
+      }
+    } else {
+      // Explore mode - return a mix of trending and recent videos
+      videos = await db.query.Videos.findMany({
+        orderBy: [sql`RANDOM() * trending_score DESC`, desc(Videos.createdAt)],
+        limit,
+        offset,
+        where: eq(Videos.status, "ready"),
+      });
+    }
+
+    // Get signed URLs for videos and user info
+    const videosWithUrls = await Promise.all(
+      videos.map(async (video: VideoWithSimilarity) => {
+        const file = storage
+          .bucket(bucketName)
+          .file(video.fileUrl.replace(`gs://${bucketName}/`, ""));
+        const [signedUrl] = await file.getSignedUrl({
+          version: "v4",
+          action: "read",
+          expires: Date.now() + 1 * 60 * 60 * 1000, // 1 hour
+        });
+
+        // Get user's info
+        const user = await db.query.Users.findFirst({
+          where: eq(Users.id, video.userId),
+        });
+
+        if (userId) {
+          const isLiked = await db.query.VideoLikes.findFirst({
+            where: and(
+              eq(VideoLikes.userId, userId),
+              eq(VideoLikes.videoId, video.id)
+            ),
+          });
+          video.isLiked = isLiked ? true : false;
+        }
+
+        let avatarUrl = "";
+        let username = "Unknown User";
+
+        if (user) {
+          username = user.username;
+          if (user.avatarUrl) {
+            try {
+              avatarUrl = await getSignedUrl(user.avatarUrl);
+            } catch (error) {
+              console.error("Error getting signed avatar URL:", error);
+            }
+          }
+        }
+
+        usernames.push(username);
+        return { ...video, url: signedUrl, avatarUrl };
+      })
+    );
+
+    const avatarUrls = videosWithUrls.map((video) => video.avatarUrl);
+    const cleanVideos = videosWithUrls.map((video) => ({
+      ...video,
+      avatarUrl: undefined,
+    }));
+
+    return NextResponse.json({
+      videos: cleanVideos,
+      avatarUrls,
+      usernames,
+      hasMore: videos.length === limit,
+    });
   } catch (error) {
     console.error("Error fetching videos:", error);
     return NextResponse.json(
@@ -118,7 +248,7 @@ export async function POST(request: Request) {
 
     const embedding = await generateEmbedding(embeddingText);
 
-    // Save metadata to db using drizzle  
+    // Save metadata to db using drizzle
     const video = await db
       .insert(Videos)
       .values({

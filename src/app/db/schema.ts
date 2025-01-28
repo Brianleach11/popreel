@@ -60,7 +60,7 @@ export const userEmbeddings = pgTable("user_embeddings", {
   userId: text("user_id")
     .notNull()
     .references(() => Users.id),
-  embedding: jsonb("embedding").notNull(), // Store as JSON array initially, can move to pgvector later
+  embedding: vector("embedding").notNull(), // Store as JSON array initially, can move to pgvector later
   updatedAt: timestamp("updated_at")
     .default(sql`now()`)
     .notNull(),
@@ -81,6 +81,7 @@ export const Videos = pgTable("videos", {
   embedding: vector("embedding").notNull(), // Content-based embedding from metadata
   status: text("status").notNull().default("processing"), // processing, ready, failed
   trendingScore: real("trending_score").default(0), // For cold start recommendations
+  likes: integer("likes").default(0).notNull(), // Track total likes count
 });
 
 export const Users = pgTable("users", {
@@ -95,3 +96,26 @@ export const Users = pgTable("users", {
     .default(sql`now()`)
     .notNull(),
 });
+
+// Video likes junction table
+export const VideoLikes = pgTable(
+  "video_likes",
+  {
+    id: uuid("id").primaryKey().defaultRandom().notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => Users.id),
+    videoId: uuid("video_id")
+      .notNull()
+      .references(() => Videos.id),
+    createdAt: timestamp("created_at")
+      .default(sql`now()`)
+      .notNull(),
+  },
+  /*(table) => ({
+    // Compound unique index to prevent duplicate likes
+    userVideoIdx: index("video_likes_user_video_idx")
+      .on(table.userId, table.videoId)
+      .unique(),
+  })*/
+);

@@ -26,12 +26,14 @@ interface ProfileHeaderProps {
   username: string;
   email: string;
   avatarUrl?: string;
+  isReadOnly: boolean;
 }
 
 export function ProfileHeader({
   username: initialUsername,
   email,
   avatarUrl: initialAvatarUrl,
+  isReadOnly,
 }: ProfileHeaderProps) {
   const [isEditing, setIsEditing] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
@@ -120,8 +122,9 @@ export function ProfileHeader({
             {username[0]?.toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <label
-          htmlFor="avatar-upload"
+        {!isReadOnly && (
+          <label
+            htmlFor="avatar-upload"
           className={`absolute bottom-0 right-0 p-2 bg-gray-900/80 backdrop-blur-sm rounded-full border border-gray-800 shadow-sm cursor-pointer hover:bg-gray-800 transition-colors ${
             isUploading ? "pointer-events-none" : ""
           }`}
@@ -138,14 +141,15 @@ export function ProfileHeader({
             className="hidden"
             onChange={handleAvatarChange}
             disabled={isUploading}
-            ref={fileInputRef}
-          />
-        </label>
+              ref={fileInputRef}
+            />
+          </label>
+        )}
       </div>
 
       <div className="flex flex-col items-center gap-1">
         <div className="flex items-center gap-2">
-          {isEditing ? (
+          {!isReadOnly && isEditing ? (
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}

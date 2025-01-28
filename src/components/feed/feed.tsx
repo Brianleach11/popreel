@@ -7,16 +7,28 @@ import { Button } from "@/components/ui/button";
 import { VideoPlayer } from "@/components/video/video-player";
 import { useVideoAnalytics } from "@/lib/hooks/use-video-analytics";
 import { useAuth } from "@clerk/nextjs";
+import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar";
+import Link from "next/link";
 
-interface Video {
-  id: number;
+export interface Video {
+  id: string;
   url: string;
   title: string;
   description: string;
   likes: number;
-  comments: number;
   userId: string;
   userName: string;
+  status: string;
+  trendingScore: number;
+  createdAt: string;
+  isLiked?: boolean;
+}
+
+interface ApiResponse {
+  videos: Video[];
+  usernames: string[];
+  avatarUrls: string[];
+  hasMore: boolean;
 }
 
 function VideoItem({
@@ -24,11 +36,17 @@ function VideoItem({
   isPlaying,
   onVisibilityChange,
   onPlayPause,
+  avatarUrl,
+  username,
+  setVideos,
 }: {
   video: Video;
   isPlaying: boolean;
   onVisibilityChange: (inView: boolean) => void;
   onPlayPause: (playing: boolean) => void;
+  avatarUrl: string;
+  username: string;
+  setVideos: React.Dispatch<React.SetStateAction<Video[]>>;
 }) {
   const { userId } = useAuth();
   const { trackEvent, finalize } = useVideoAnalytics(video.id);
@@ -57,11 +75,42 @@ function VideoItem({
     []
   );
 
-  const handleLike = () => {
-    if (userId) {
-      trackEvent(userId, "like");
+  const handleLike = async () => {
+    if (!userId) return;
+
+    try {
+      const response = await fetch(`/api/video/${video.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: video.isLiked ? "unlike" : "like",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update like status");
+      }
+
+      // Track analytics
+      if (video.isLiked) {
+        trackEvent(userId, "like");
+      }
+
+      // Update local state
+      const updatedVideo = await response.json();
+      setVideos((prevVideos) =>
+        prevVideos.map((v) =>
+          v.id === video.id
+            ? { ...v, likes: updatedVideo.video.likes, isLiked: !v.isLiked }
+            : v
+        )
+      );
+    } catch (error) {
+      console.error("Error updating like status:", error);
+      // You might want to show a toast notification here
     }
-    // TODO: Implement like functionality
   };
 
   const handleComment = () => {
@@ -81,48 +130,33 @@ function VideoItem({
   return (
     <div
       ref={ref}
-      className="relative w-full h-[100dvh] snap-start snap-always"
+      className="relative w-full h-[calc(100vh-4rem)] snap-start snap-always flex flex-col items-center py-4 -ml-96"
     >
-      <div className="flex gap-4 h-full">
-        {/* Main video content */}
-        <div className="flex-1 min-w-0 flex flex-col">
-          <div className="flex-1 relative">
-            <VideoPlayer
-              url={video.url}
-              playing={isPlaying}
-              onPlayPause={onPlayPause}
-              handleProgress={handleVideoProgress}
-              onEnded={() => onPlayPause(true)}
-              className="absolute inset-0"
-            />
-          </div>
-
-          {/* User info and description */}
-          <div className="px-4 py-3 bg-gradient-to-t from-black/80 to-transparent">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-8 w-8 rounded-full bg-gray-800 flex-shrink-0" />
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-white text-sm truncate">
-                  {video.userName}
-                </h3>
-                <p className="text-sm text-gray-400 truncate">{video.title}</p>
-              </div>
-            </div>
-            <p className="text-sm text-gray-400 line-clamp-2">
-              {video.description}
-            </p>
-          </div>
-        </div>
+      {/* Main container with max height for video */}
+      <div className="w-full max-w-[360px] aspect-[9/16] relative">
+        {/* Video player */}
+        <VideoPlayer
+          url={video.url}
+          playing={isPlaying}
+          onPlayPause={onPlayPause}
+          handleProgress={handleVideoProgress}
+          onEnded={() => onPlayPause(true)}
+          className="w-full h-full rounded-lg overflow-hidden"
+        />
 
         {/* Interaction buttons on the right */}
-        <div className="flex flex-col items-center justify-center gap-8 pr-4">
+        <div className="absolute -right-24 bottom-20 flex flex-col items-center gap-6">
           <Button
             variant="ghost"
             size="sm"
-            className="flex flex-col items-center gap-1.5 hover:bg-transparent text-white hover:text-primary transition-colors"
+            className={`flex flex-col items-center gap-1.5 hover:bg-transparent ${
+              video.isLiked ? "text-primary" : "text-white"
+            } hover:text-primary transition-colors`}
             onClick={handleLike}
           >
-            <Heart className="h-7 w-7" />
+            <Heart
+              className={`h-7 w-7 ${video.isLiked ? "fill-current" : ""}`}
+            />
             <span className="text-xs font-medium">{video.likes}</span>
           </Button>
           <Button
@@ -132,7 +166,7 @@ function VideoItem({
             onClick={handleComment}
           >
             <MessageSquare className="h-7 w-7" />
-            <span className="text-xs font-medium">{video.comments}</span>
+            <span className="text-xs font-medium">Comment</span>
           </Button>
           <Button
             variant="ghost"
@@ -145,74 +179,185 @@ function VideoItem({
           </Button>
         </div>
       </div>
+
+      {/* Video info section below */}
+      <div className="w-full max-w-[360px] px-4 py-3 -ml-8">
+        <div className="flex items-center gap-3 mb-2">
+          <Avatar className="h-8 w-8 rounded-full">
+            <AvatarImage
+              src={avatarUrl}
+              alt="avatar"
+              className="object-cover rounded-full h-8 w-8"
+            />
+            <AvatarFallback className="bg-gray-900" />
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <Link
+              href={`/profile/${video.userId}`}
+              className="font-semibold text-white text-sm truncate hover:text-primary transition-colors flex items-center"
+            >
+              @{username}
+            </Link>
+          </div>
+        </div>
+        <p className="text-sm text-gray-400 truncate">{video.title}</p>
+        <p className="text-sm text-gray-400 line-clamp-2">
+          {video.description}
+        </p>
+      </div>
     </div>
   );
 }
 
-export function Feed() {
-  const [videos, setVideos] = React.useState<Video[]>([]);
-  const [page, setPage] = React.useState(1);
-  const [loading, setLoading] = React.useState(false);
-  const [currentlyPlaying, setCurrentlyPlaying] = React.useState<number | null>(
-    1
-  );
+// Debounce utility function with proper typing
+function debounce<Args extends unknown[]>(
+  func: (...args: Args) => void,
+  wait: number
+): {
+  (...args: Args): void;
+  cancel: () => void;
+} {
+  let timeout: NodeJS.Timeout | null = null;
 
-  // Pagination observer
+  const debounced = (...args: Args) => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => {
+      func(...args);
+    }, wait);
+  };
+
+  debounced.cancel = () => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  };
+
+  return debounced;
+}
+
+export function Feed({
+  initialVideos,
+  initialAvatarUrls,
+  initialUsernames,
+}: {
+  initialVideos: Video[];
+  initialAvatarUrls: string[];
+  initialUsernames: string[];
+}) {
+  const [mounted, setMounted] = React.useState(false);
+  const [videos, setVideos] = React.useState<Video[]>(initialVideos);
+  const [page, setPage] = React.useState(2);
+  const [loading, setLoading] = React.useState(false);
+  const [hasMore, setHasMore] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [currentlyPlaying, setCurrentlyPlaying] = React.useState<string | null>(
+    null
+  );
+  const [avatarUrls, setAvatarUrls] =
+    React.useState<string[]>(initialAvatarUrls);
+  const [usernames, setUsernames] = React.useState<string[]>(initialUsernames);
+  // Handle hydration
+  React.useEffect(() => {
+    setMounted(true);
+    setCurrentlyPlaying(initialVideos?.[0]?.id || null);
+  }, [initialVideos]);
+
+  const loadMore = React.useCallback(async () => {
+    if (loading || !hasMore) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(
+        `/api/video?mode=trending&page=${page}&limit=5`
+      );
+      if (!response.ok) throw new Error("Failed to fetch videos");
+
+      const data: ApiResponse & { avatarUrls: string[] } =
+        await response.json();
+
+      if (data.videos.length > 0) {
+        setVideos((prev) => [...prev, ...data.videos]);
+        setPage((prev) => prev + 1);
+        if (data.avatarUrls?.length > 0) {
+          setAvatarUrls((prev) => [...prev, ...data.avatarUrls]);
+        }
+        if (data.usernames?.length > 0) {
+          setUsernames((prev) => [...prev, ...data.usernames]);
+        }
+      }
+      setHasMore(data.hasMore);
+    } catch (error) {
+      console.error("Error loading videos:", error);
+      setError("Failed to load more videos");
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, loading, hasMore]);
+
+  // Debounced version of loadMore
+  const debouncedLoad = React.useCallback(() => {
+    const debouncedFn = debounce(() => loadMore(), 500);
+    debouncedFn();
+    return debouncedFn.cancel;
+  }, [loadMore]);
+
+  // Cleanup
+  React.useEffect(() => {
+    return () => {
+      debouncedLoad();
+    };
+  }, [debouncedLoad]);
+
+  // Intersection observer
   const { ref: paginationRef, inView } = useInView({
     threshold: 0.5,
+    rootMargin: "400px",
   });
 
-  const loadMoreVideos = React.useCallback(async () => {
-    if (loading) return;
-    setLoading(true);
-
-    // TODO: Replace with actual API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    const newVideos = Array.from({ length: 5 }, (_, i) => ({
-      id: (page - 1) * 5 + i + 1,
-      url: "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-      title: `Video ${(page - 1) * 5 + i + 1}`,
-      description:
-        "This is a sample video description showcasing the latest trends and updates.",
-      likes: Math.floor(Math.random() * 1000),
-      comments: Math.floor(Math.random() * 100),
-      userId: "user123",
-      userName: "John Doe",
-    }));
-
-    setVideos((prev) => [...prev, ...newVideos]);
-    setPage((prev) => prev + 1);
-    setLoading(false);
-  }, [page, loading]);
-
   React.useEffect(() => {
-    if (inView) {
-      loadMoreVideos();
+    if (inView && !loading && hasMore && mounted) {
+      debouncedLoad();
     }
-  }, [inView, loadMoreVideos]);
+  }, [inView, debouncedLoad, loading, hasMore, mounted]);
+
+  if (!mounted) {
+    return null; // Prevent hydration mismatch
+  }
 
   return (
-    <div className="h-[100dvh] overflow-y-auto snap-y snap-mandatory">
-      <div className="flex flex-col items-center w-full max-w-3xl mx-auto bg-black">
-        {videos.map((video) => (
+    <div className="h-full w-full overflow-y-auto snap-y snap-mandatory">
+      <div className="flex flex-col items-center w-full bg-black">
+        {videos.map((video, index) => (
           <VideoItem
             key={video.id}
             video={video}
             isPlaying={currentlyPlaying === video.id}
             onVisibilityChange={(inView) => {
-              if (inView) {
+              if (inView && mounted) {
                 setCurrentlyPlaying(video.id);
               }
             }}
             onPlayPause={(playing) =>
               setCurrentlyPlaying(playing ? video.id : null)
             }
+            avatarUrl={avatarUrls[index]}
+            username={usernames[index]}
+            setVideos={setVideos}
           />
         ))}
 
-        <div ref={paginationRef} className="w-full flex justify-center p-4">
+        <div
+          ref={paginationRef}
+          className="w-full flex justify-center p-4 -ml-96"
+        >
           {loading && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {!hasMore && <p className="text-gray-500 text-sm">No more videos</p>}
         </div>
       </div>
     </div>

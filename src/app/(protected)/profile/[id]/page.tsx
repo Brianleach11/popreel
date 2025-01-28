@@ -1,22 +1,29 @@
-import { ProfileHeader } from "@/components/profile/profile-header";
-import { VideoGrid } from "@/components/profile/video-grid";
 import { auth } from "@clerk/nextjs/server";
-import db from "@/app/db";
-import { Users, Videos } from "@/app/db/schema";
-import { eq } from "drizzle-orm";
-import { getSignedUrl } from "@/lib/video";
-import { Separator } from "@/components/ui/separator";
 import { redirect } from "next/navigation";
+import db from "@/app/db";
+import { eq } from "drizzle-orm";
+import { Users, Videos } from "@/app/db/schema";
+import { getSignedUrl } from "@/lib/video";
+import { ProfileHeader } from "@/components/profile/profile-header";
+import { Separator } from "@/components/ui/separator";
+import { VideoGrid } from "@/components/profile/video-grid";
 
+export default async function ProfilePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { userId: currentUserId } = await auth();
+  const { id } = await params;
 
-export default async function ProfilePage() {
-  const { userId } = await auth();
-  if (!userId) {
-    throw new Error("User not authenticated");
+  // If viewing own profile, redirect to /profile
+  if (currentUserId === id) {
+    redirect("/profile");
   }
 
+  // Get user info
   const profileUser = await db.query.Users.findFirst({
-    where: eq(Users.id, userId),
+    where: eq(Users.id, id),
   });
 
   if (!profileUser) {
@@ -25,7 +32,7 @@ export default async function ProfilePage() {
 
   // Get user's videos
   const videos = await db.query.Videos.findMany({
-    where: eq(Videos.userId, userId),
+    where: eq(Videos.userId, id),
     orderBy: (Videos, { desc }) => [desc(Videos.createdAt)],
   });
 
@@ -46,17 +53,15 @@ export default async function ProfilePage() {
     : "";
 
   return (
-    <div className="container max-w-6xl mx-auto py-8 px-4 bg-black text-white">
-      <div className="relative space-y-8">
-        <ProfileHeader
-          username={profileUser.username}
-          email={profileUser.email}
-          avatarUrl={avatarUrl}
-          isReadOnly={false}
-        />
-        <Separator />
-        <VideoGrid videos={videosWithUrls} isReadOnly={false} />
-      </div>
+    <div className="min-h-screen bg-black">
+      <ProfileHeader
+        username={profileUser.username}
+        email={profileUser.email}
+        avatarUrl={avatarUrl}
+        isReadOnly={true}
+      />
+      <Separator />
+      <VideoGrid videos={videosWithUrls} isReadOnly={true} />
     </div>
   );
 }

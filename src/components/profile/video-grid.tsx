@@ -17,19 +17,17 @@ import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-interface Video {
-  id: string;
-  title: string;
-  url: string;
-  createdAt: Date;
-  status: string;
-}
+import type { Video } from "@/components/feed/feed";
 
 interface VideoGridProps {
   videos: Video[];
+  isReadOnly?: boolean;
 }
 
-export function VideoGrid({ videos: initialVideos }: VideoGridProps) {
+export function VideoGrid({
+  videos: initialVideos,
+  isReadOnly = false,
+}: VideoGridProps) {
   const [videos, setVideos] = React.useState<Video[]>(initialVideos);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const previewRefs = React.useRef<{ [key: string]: HTMLVideoElement | null }>(
@@ -103,52 +101,54 @@ export function VideoGrid({ videos: initialVideos }: VideoGridProps) {
                     })}
                   </p>
                 </div>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-500/10"
-                      disabled={deletingId === video.id}
-                    >
-                      {deletingId === video.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="bg-gray-900/95 backdrop-blur-sm border border-gray-800">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="text-white">
-                        Delete Video
-                      </AlertDialogTitle>
-                      <AlertDialogDescription className="text-gray-400">
-                        Are you sure you want to delete this video? This action
-                        cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel className="bg-gray-800/90 text-white hover:bg-gray-700">
-                        Cancel
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => handleDelete(video.id)}
-                        className="bg-red-500/90 text-white hover:bg-red-600"
+                {!isReadOnly && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-500/10"
                         disabled={deletingId === video.id}
                       >
                         {deletingId === video.id ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Deleting...
-                          </>
+                          <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          "Delete"
+                          <Trash2 className="h-4 w-4" />
                         )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="bg-gray-900/95 backdrop-blur-sm border border-gray-800">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="text-white">
+                          Delete Video
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-gray-400">
+                          Are you sure you want to delete this video? This
+                          action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="bg-gray-800/90 text-white hover:bg-gray-700">
+                          Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(video.id)}
+                          className="bg-red-500/90 text-white hover:bg-red-600"
+                          disabled={deletingId === video.id}
+                        >
+                          {deletingId === video.id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            "Delete"
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
             </div>
           </div>

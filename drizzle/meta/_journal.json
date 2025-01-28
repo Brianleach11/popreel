@@ -64,6 +64,20 @@
       "when": 1737851589748,
       "tag": "0008_jittery_gambit",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1738003090464,
+      "tag": "0009_clean_longshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1738023597460,
+      "tag": "0010_volatile_elektra",
+      "breakpoints": true
     }
   ]
 }

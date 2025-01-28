@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.webhook import webhook_router
 from routes.kafka_producer import router as kafka_router
+from routes.recommendations import router as recommendations_router
 from db.connection import get_db, init_postgres
 from fastapi import Depends, HTTPException
 import asyncpg
@@ -17,7 +18,8 @@ app = FastAPI()
 # Frontend URL (in production and development)
 FRONTEND_URLS = [
     "http://localhost:3000",  # Local development
-    "https://popreel-seven.vercel.app",  # Production
+    "https://popreel-seven.vercel.app",  # Production on vercel
+    "https://popreel.onrender.com" # Production on render
 ]
 
 @app.on_event("startup")
@@ -38,7 +40,8 @@ app.add_middleware(
 
 # Include routes
 app.include_router(webhook_router)
-app.include_router(kafka_router)  # Add Kafka routes
+app.include_router(kafka_router)
+app.include_router(recommendations_router)
 
 @app.get("/")
 def read_root():
