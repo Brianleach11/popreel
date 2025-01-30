@@ -29,16 +29,14 @@ export function useVideoAnalytics(videoId: string) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          events: [
-            {
-              userId: analytics.userId,
-              videoId: analytics.videoId,
-              viewDuration,
-              liked: analytics.liked,
-              commented: analytics.commented,
-              shared: analytics.shared,
-            },
-          ],
+          event: {
+            userId: analytics.userId,
+            videoId: analytics.videoId,
+            viewDuration,
+            liked: analytics.liked,
+            commented: analytics.commented,
+            shared: analytics.shared,
+          },
         }),
       });
 

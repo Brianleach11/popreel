@@ -55,7 +55,7 @@ class KafkaClient:
                     ]:
                         config[parameter] = value.strip()
                     elif config_type == "consumer" and parameter in [
-                        "auto.offset.reset", "heartbeat.interval.ms"
+                        "enable.auto.commit", "auto.offset.reset", "heartbeat.interval.ms", "max.poll.interval.ms", "session.timeout.ms"
                     ]:
                         config[parameter] = value.strip()
                     elif parameter in [
@@ -146,9 +146,10 @@ class KafkaClient:
         
         for msg in messages:
             interaction = VideoInteraction(**msg)
-            user_id = interaction['userId']
+            user_id = interaction.userId
             if user_id not in interactions_by_user:
                 interactions_by_user[user_id] = []
+            print(f"Appending interaction to user {user_id}: {interaction}")
             interactions_by_user[user_id].append(interaction)
         
         return interactions_by_user
@@ -216,3 +217,15 @@ def get_kafka_client() -> KafkaClient:
     if _kafka_client is None:
         _kafka_client = KafkaClient()
     return _kafka_client 
+
+
+
+
+    #useState(cur+2)
+    #useState(cur-1)
+
+    #useState((prev) => prev + 2)
+    #useState((prev) => prev - 1)
+
+
+    #xpensive function use useMemo to memoize the result

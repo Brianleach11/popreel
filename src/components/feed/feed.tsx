@@ -177,10 +177,10 @@ function VideoItem({
     <>
       <div
         ref={ref}
-        className="relative w-full h-[calc(100vh-4rem)] snap-start snap-always flex flex-col items-center py-4 -ml-96"
+        className="relative w-full h-[100dvh] snap-start snap-always flex flex-col items-center justify-center py-4"
       >
         {/* Main container with max height for video */}
-        <div className="w-full max-w-[360px] aspect-[9/16] relative">
+        <div className="w-full max-w-[360px] aspect-[9/16] relative mx-auto">
           {/* Video player */}
           <VideoPlayer
             url={video.url}
@@ -407,7 +407,7 @@ export function Feed({
   }
 
   return (
-    <div className="h-full w-full overflow-y-auto snap-y snap-mandatory">
+    <div className="h-[100dvh] w-full overflow-y-auto snap-y snap-mandatory scroll-smooth">
       <div className="flex flex-col items-center w-full bg-black">
         {videos.map((video, index) => (
           <VideoItem

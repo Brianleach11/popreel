@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import db from "@/app/db";
 import { analytics, Videos } from "@/app/db/schema";
 import { calculateInteractionScore } from "@/lib/ml/scoring";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 export async function POST(req: Request) {
   try {
@@ -12,62 +12,64 @@ export async function POST(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { events } = await req.json();
-    if (!Array.isArray(events) || events.length === 0) {
+    const { event } = await req.json();
+    if (!event) {
       return new NextResponse("Invalid request body", { status: 400 });
     }
 
-    // Validate all events have the required userId and viewDuration
-    const validEvents = events.filter(
-      (event) =>
-        event.userId === userId &&
-        typeof event.viewDuration === "number" &&
-        event.viewDuration >= 0
-    );
-
-    if (validEvents.length === 0) {
-      return new NextResponse("No valid events provided", { status: 400 });
-    }
-
     // Get video durations for score calculation
-    const videoIds = validEvents.map((event) => event.videoId);
-    const videos = await db
+    const video_duration = await db
       .select({ id: Videos.id, duration: Videos.duration })
       .from(Videos)
-      .where(and(...videoIds.map((id) => eq(Videos.id, id))));
+      .where(eq(Videos.id, event.videoId));
 
-    const videoDurations = new Map(videos.map((v) => [v.id, v.duration || 0]));
-
-    const processedValidEvents = validEvents.map((event) => {
-      const videoDuration = videoDurations.get(event.videoId) || 0;
-      const weightedScore = calculateInteractionScore({
-        viewDuration: event.viewDuration,
-        videoDuration,
-        liked: event.liked || false,
-        commented: event.commented || false,
-        shared: event.shared || false,
-        timestamp: new Date(),
-      });
-      return {
-        userId: event.userId,
-        videoId: event.videoId,
-        viewDuration: event.viewDuration,
-        liked: event.liked || false,
-        commented: event.commented || false,
-        shared: event.shared || false,
-        timestamp: new Date(),
-        weightedScore,
-      };
+    if (!video_duration || video_duration[0].duration === null) {
+      return new NextResponse("Video not found", { status: 404 });
+    }
+    const timestamp = new Date();
+    const weightedScore = calculateInteractionScore({
+      viewDuration: event.viewDuration,
+      videoDuration: video_duration[0].duration,
+      liked: event.liked || false,
+      commented: event.commented || false,
+      shared: event.shared || false,
+      timestamp,
     });
+    const processedEvent = {
+      userId: event.userId,
+      videoId: event.videoId,
+      viewDuration: event.viewDuration,
+      liked: event.liked || false,
+      commented: event.commented || false,
+      shared: event.shared || false,
+      timestamp: timestamp,
+      weightedScore,
+    };
 
-    // Calculate weighted scores and insert events
-    await db.insert(analytics).values(processedValidEvents);
+    // Insert into database
+    await db.insert(analytics).values(processedEvent);
 
-    //post to kafka
-    await fetch(`${process.env.BACKEND_URL}/api/kafka/interaction`, {
-      method: "POST",
-      body: JSON.stringify(processedValidEvents),
-    });
+    // Prepare Kafka message with ISO string timestamps
+    const kafkaEvent = {
+      ...processedEvent,
+      timestamp: processedEvent.timestamp.toISOString(),
+    };
+
+    // Post to kafka
+    const response = await fetch(
+      `${process.env.BACKEND_URL}/api/kafka/interaction`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(kafkaEvent),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to post to Kafka");
+    }
 
     return new NextResponse("OK", { status: 200 });
   } catch (error) {

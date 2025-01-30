@@ -3,7 +3,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from pinecone import Pinecone, ServerlessSpec
 from db.connection import get_db
 from routes.kafka_client import VideoInteraction, VideoEmbedding
-from datetime import datetime
+from datetime import datetime, timezone
 import numpy as np
 
 # Lazy initialization of Pinecone
@@ -124,18 +124,27 @@ async def update_user_embedding(user_id: str, interactions_with_video_embeddings
         # Update in database
         db_pool = await get_db()
         async with db_pool.acquire() as conn:
-            await conn.execute(
+            # First try to update existing record
+            result = await conn.execute(
                 """
-                INSERT INTO user_embeddings (user_id, embedding, updated_at)
-                VALUES ($1, $2, NOW())
-                ON CONFLICT (user_id) 
-                DO UPDATE SET 
-                    embedding = $2,
-                    updated_at = NOW()
+                UPDATE user_embeddings 
+                SET embedding = $1, updated_at = NOW()
+                WHERE user_id = $2
                 """,
-                user_id,
-                new_embedding
+                f"[{','.join(map(str, new_embedding))}]",  # Format as PostgreSQL array
+                user_id
             )
+            
+            # If no record was updated, insert a new one
+            if result == "UPDATE 0":
+                await conn.execute(
+                    """
+                    INSERT INTO user_embeddings (user_id, embedding, updated_at)
+                    VALUES ($1, $2, NOW())
+                    """,
+                    user_id,
+                    f"[{','.join(map(str, new_embedding))}]"  # Format as PostgreSQL array
+                )
         return True
     except Exception as e:
         print(f"Error updating user embedding: {e}")
@@ -159,14 +168,21 @@ async def get_user_embedding(user_id: str) -> Optional[List[float]]:
             """, 
             user_id
         )
+        print(f"Fetched user embedding for user {user_id}")
         
         if not result or not result['embedding']:
             return None
             
-        # Apply time decay
-        days_since_update = (datetime.now() - result['updated_at']).days
+        # Parse the embedding string into a list of floats
+        embedding_str = result['embedding'].strip('[]')
+        embedding = [float(x.strip()) for x in embedding_str.split(',')]
+            
+        # Apply time decay - ensure both times are timezone-aware
+        updated_at = result['updated_at'].replace(tzinfo=timezone.utc)  # Ensure UTC timezone
+        current_time = datetime.now(timezone.utc)
+        days_since_update = (current_time - updated_at).days
         decay_factor = np.power(TIME_DECAY_FACTOR, days_since_update / 30)  # Decay over 30-day periods
-        return [x * decay_factor for x in result['embedding']]
+        return [x * decay_factor for x in embedding]
 
 async def generate_delta_embedding(interactions_with_video_embeddings: List[Tuple[VideoInteraction, List[float] | None]]) -> Optional[List[float]]:
     """
@@ -180,35 +196,45 @@ async def generate_delta_embedding(interactions_with_video_embeddings: List[Tupl
         return None
         
     weighted_embeddings = []
-    total_weight = 0
+    total_weight = 0.0  # Changed to float
     
-    for interaction, video_embedding in interactions_with_video_embeddings:
-        if not video_embedding:
+    for interaction, video_embedding_dict in interactions_with_video_embeddings:
+        if not video_embedding_dict or not video_embedding_dict.get('embedding'):
             continue
             
+        # Extract the embedding from the dictionary
+        video_embedding = video_embedding_dict['embedding']
+            
+        # Convert video embedding to numpy array for vector operations
+        embedding_array = np.array(video_embedding, dtype=np.float64)
+            
         # Use the pre-calculated weightedScore
-        weight = interaction.weightedScore
+        weight = float(interaction.weightedScore)  # Convert to float
             
         # Apply time decay to the interaction
-        interaction_time = datetime.fromisoformat(interaction.timestamp)
-        days_since_interaction = (datetime.now() - interaction_time).days
-        decay_factor = np.power(TIME_DECAY_FACTOR, days_since_interaction / 30)
+        interaction_time = datetime.fromisoformat(interaction.timestamp.replace('Z', '+00:00'))
+        days_since_interaction = (datetime.now(timezone.utc) - interaction_time).days
+        decay_factor = float(np.power(TIME_DECAY_FACTOR, days_since_interaction / 30))  # Convert to float
         weight *= decay_factor
         
-        # Add weighted embedding
-        weighted_embeddings.append([x * weight for x in video_embedding])
+        # Add weighted embedding using numpy multiplication
+        weighted_embedding = embedding_array * weight
+        weighted_embeddings.append(weighted_embedding)
         total_weight += weight
     
     if not weighted_embeddings or total_weight == 0:
         return None
         
-    # Calculate weighted average
-    result = [0.0] * EMBEDDING_DIMENSION
-    for embedding in weighted_embeddings:
-        for i in range(EMBEDDING_DIMENSION):
-            result[i] += embedding[i] / total_weight
+    # Calculate weighted average using numpy
+    result = np.zeros(EMBEDDING_DIMENSION, dtype=np.float64)
+    for weighted_embedding in weighted_embeddings:
+        result += weighted_embedding
+    
+    # Normalize by total weight and convert back to list
+    if total_weight > 0:
+        result = result / total_weight
             
-    return result
+    return result.tolist()
 
 def merge_embeddings(current: List[float], delta: List[float], alpha: float = 0.7) -> List[float]:
     """
